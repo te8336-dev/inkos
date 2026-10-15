@@ -6,7 +6,8 @@ import { getEndpoint } from "./providers/index.js";
 import { lookupModel } from "./providers/lookup.js";
 import type { InkosEndpoint } from "./providers/types.js";
 import { isApiKeyOptionalForEndpoint } from "../utils/llm-endpoint-auth.js";
-import { toPiApi, type LLMApiFormat } from "./api-format.js";
+import { toPiApi, type LLMApiFormat, type LLMReasoningEffort } from "./api-format.js";
+import { withReasoningEffort } from "./reasoning-effort.js";
 
 export interface ResolvedModel {
   model: Model<Api>;
@@ -40,6 +41,7 @@ export async function resolveServiceModel(
   projectRoot: string,
   customBaseUrl?: string,
   customApiFormat?: LLMApiFormat,
+  reasoningEffort?: LLMReasoningEffort,
 ): Promise<ResolvedModel> {
   // Determine pi-ai provider
   const baseService = service.startsWith("custom:") ? "custom" : service;
@@ -91,7 +93,7 @@ export async function resolveServiceModel(
   };
 
   return {
-    model,
+    model: withReasoningEffort(model, reasoningEffort),
     apiKey: apiKey ?? "",
     writingTemperature: preset?.writingTemperature,
     temperatureRange: preset?.temperatureRange,

@@ -4,7 +4,7 @@ import { useServiceStore } from "../store/service";
 import { Eye, EyeOff, Loader2, ArrowLeft, Plus, Trash2, X } from "lucide-react";
 import { ServiceQuickLinks } from "../components/ServiceQuickLinks";
 import { tr } from "../lib/app-language";
-import { isLLMApiFormat } from "@actalk/inkos-core/llm/api-format";
+import { isLLMApiFormat, isLLMReasoningEffort, type LLMReasoningEffort } from "@actalk/inkos-core/llm/api-format";
 import {
   deleteServiceConfig,
   matchServiceConfigEntryForDetail,
@@ -56,6 +56,7 @@ export function ServiceDetailPage({ serviceId, nav }: { serviceId: string; nav: 
   const [customName, setCustomName] = useState("");
   const [baseUrl, setBaseUrl] = useState("");
   const [temperature, setTemperature] = useState("0.7");
+  const [reasoningEffort, setReasoningEffort] = useState<LLMReasoningEffort>("default");
   const [apiFormat, setApiFormat] = useState<LLMApiFormat>("chat");
   const [stream, setStream] = useState(true);
   const [detectedModel, setDetectedModel] = useState<string>("");
@@ -80,6 +81,7 @@ export function ServiceDetailPage({ serviceId, nav }: { serviceId: string; nav: 
           setBaseUrl(String(matched.baseUrl ?? ""));
         }
         if (typeof matched.temperature === "number") setTemperature(String(matched.temperature));
+        setReasoningEffort(isLLMReasoningEffort(matched.reasoningEffort) ? matched.reasoningEffort : "default");
         if (isLLMApiFormat(matched.apiFormat)) setApiFormat(matched.apiFormat);
         if (typeof matched.stream === "boolean") setStream(matched.stream);
         if (Array.isArray(matched.models)) {
@@ -163,6 +165,7 @@ export function ServiceDetailPage({ serviceId, nav }: { serviceId: string; nav: 
         apiKey: trimmedKey,
         apiFormat,
         stream,
+        reasoningEffort,
         ...(preferredModel ? { preferredModel } : {}),
         ...(isCustom ? { baseUrl: baseUrl.trim() } : {}),
       });
@@ -181,6 +184,7 @@ export function ServiceDetailPage({ serviceId, nav }: { serviceId: string; nav: 
           baseUrl: verifiedBaseUrl,
           apiFormat: verifiedApiFormat,
           stream: verifiedStream,
+          reasoningEffort,
           models,
           selectedModel: result.selectedModel,
           detected: result.detected,
@@ -233,6 +237,7 @@ export function ServiceDetailPage({ serviceId, nav }: { serviceId: string; nav: 
         apiFormat,
         stream,
         temperature,
+        reasoningEffort,
         detectedModel,
         configuredModels,
         verifiedProbe,
@@ -453,6 +458,30 @@ export function ServiceDetailPage({ serviceId, nav }: { serviceId: string; nav: 
           </div>
           )}
         </div>
+
+        {apiFormat !== "anthropic" && (
+          <Field label={tr("推理强度", "Reasoning effort")}>
+            <select aria-label={tr("推理强度", "Reasoning effort")} value={reasoningEffort}
+              onChange={(e) => { if (isLLMReasoningEffort(e.target.value)) setReasoningEffort(e.target.value); setSaveFeedback(null); }}
+              className="w-full rounded-lg border border-border/60 bg-background px-3 py-2 text-sm">
+              <option value="default">{tr("服务端默认", "Server default")}</option>
+              <option value="none">{tr("关闭（none）", "None")}</option>
+              <option value="minimal">{tr("极低（minimal）", "Minimal")}</option>
+              <option value="low">{tr("低（low）", "Low")}</option>
+              <option value="medium">{tr("中（medium）", "Medium")}</option>
+              <option value="high">{tr("高（high）", "High")}</option>
+              <option value="xhigh">{tr("极高（xhigh）", "Extra high")}</option>
+              <option value="max">{tr("最高（max）", "Maximum")}</option>
+            </select>
+            <p className="text-xs text-muted-foreground/60">{tr(
+              "较高强度通常更慢、消耗更多 Token。不同模型支持的档位不同；服务端默认不指定强度。",
+              "Higher effort usually takes more time and tokens. Supported levels vary by model; server default sends no effort override.",
+            )}</p>
+            {reasoningEffort !== "default" && reasoningEffort !== "none" && (
+              <p className="text-xs text-muted-foreground/60">{tr("启用推理强度后不发送 temperature 等采样参数。", "Sampling controls such as temperature are omitted when reasoning effort is enabled.")}</p>
+            )}
+          </Field>
+        )}
 
         {/* Advanced params */}
         <details className="group pt-2 border-t border-border/20">

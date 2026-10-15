@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { LLM_API_FORMATS } from "../llm/api-format.js";
+import { LLM_API_FORMATS, LLM_REASONING_EFFORTS } from "../llm/api-format.js";
 
 export const LLMServiceEntrySchema = z.object({
   service: z.string().min(1),
@@ -7,6 +7,7 @@ export const LLMServiceEntrySchema = z.object({
   baseUrl: z.string().url().optional(),
   models: z.array(z.string().min(1)).optional(),
   temperature: z.number().min(0).max(2).optional(),
+  reasoningEffort: z.enum(LLM_REASONING_EFFORTS).optional(),
   apiFormat: z.enum(LLM_API_FORMATS).optional(),
   stream: z.boolean().optional(),
 }).strict();
@@ -27,6 +28,7 @@ export const LLMConfigSchema = z.object({
   proxyUrl: z.string().url().optional(),
   temperature: z.number().min(0).max(2).default(0.7),
   thinkingBudget: z.number().int().min(0).default(0),
+  reasoningEffort: z.enum(LLM_REASONING_EFFORTS).optional(),
   extra: z.record(z.unknown()).optional(),
   headers: z.record(z.string()).optional(),
   apiFormat: z.enum(LLM_API_FORMATS).default("chat"),

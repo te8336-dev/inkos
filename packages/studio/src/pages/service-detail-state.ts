@@ -1,5 +1,5 @@
 import { fetchJson } from "../hooks/use-api";
-import type { LLMApiFormat } from "@actalk/inkos-core/llm/api-format";
+import type { LLMApiFormat, LLMReasoningEffort } from "@actalk/inkos-core/llm/api-format";
 
 export type { LLMApiFormat } from "@actalk/inkos-core/llm/api-format";
 
@@ -78,6 +78,7 @@ export interface ServiceDetailVerifiedProbe {
   readonly baseUrl: string;
   readonly apiFormat: LLMApiFormat;
   readonly stream: boolean;
+  readonly reasoningEffort?: LLMReasoningEffort;
   readonly models: ServiceDetailModelInfo[];
   readonly selectedModel?: string;
   readonly detected?: ServiceDetailDetectedConfig;
@@ -91,6 +92,7 @@ export async function probeServiceForDetail(
     readonly stream: boolean;
     readonly baseUrl?: string;
     readonly preferredModel?: string;
+    readonly reasoningEffort?: LLMReasoningEffort;
   },
   deps?: { readonly fetchJsonImpl?: JsonFetcher },
 ): Promise<ServiceProbeResponse> {
@@ -158,6 +160,7 @@ export async function saveServiceConfig(args: {
   readonly apiFormat: LLMApiFormat;
   readonly stream: boolean;
   readonly temperature: string;
+  readonly reasoningEffort?: LLMReasoningEffort;
   readonly detectedModel: string;
   readonly configuredModels?: ReadonlyArray<ServiceDetailModelInfo | string>;
   readonly verifiedProbe?: ServiceDetailVerifiedProbe | null;
@@ -196,7 +199,8 @@ export async function saveServiceConfig(args: {
       && verified.apiKey === trimmedKey
       && verified.baseUrl === verifiedBaseUrl
       && verified.apiFormat === args.apiFormat
-      && verified.stream === args.stream,
+      && verified.stream === args.stream
+      && verified.reasoningEffort === args.reasoningEffort,
   );
 
   let probe: ServiceProbeResponse;
@@ -213,6 +217,7 @@ export async function saveServiceConfig(args: {
         apiKey: trimmedKey,
         apiFormat: args.apiFormat,
         stream: args.stream,
+        ...(args.reasoningEffort !== undefined ? { reasoningEffort: args.reasoningEffort } : {}),
         ...(preferredModel ? { preferredModel } : {}),
         ...(args.isCustom ? { baseUrl: trimmedBaseUrl } : {}),
       }, { fetchJsonImpl });
@@ -260,6 +265,7 @@ export async function saveServiceConfig(args: {
         {
           service: args.isCustom ? "custom" : args.serviceId,
           temperature: parseFloat(args.temperature),
+          ...(args.reasoningEffort !== undefined ? { reasoningEffort: args.reasoningEffort } : {}),
           apiFormat: savedApiFormat,
           stream: savedStream,
           models: savedModels.map((model) => model.id),

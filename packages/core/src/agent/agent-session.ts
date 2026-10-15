@@ -69,6 +69,7 @@ import {
 import { withExecutionEvidence } from "../harness/execution-evidence.js";
 import { opaqueConversationId, runWithAgentTrajectory } from "../llm/agent-trajectory.js";
 import { guardedPiNonStreaming, guardedPiStream } from "./pi-stream.js";
+import { modelReasoningEffort } from "../llm/reasoning-effort.js";
 import { splitTextByEstimatedTokens } from "../llm/semantic-input.js";
 import { estimateTextTokens } from "../llm/provider.js";
 
@@ -838,7 +839,7 @@ async function runAgentSessionUnlocked(
     disabledSkills: config.disabledSkills,
   });
   const model = resolveModel(config.model);
-  const requestedModelIdentity = `${agentModelIdentity(model)}|stream:${config.stream ?? true}|proxy:${config.proxyUrl ?? ""}`;
+  const requestedModelIdentity = `${agentModelIdentity(model)}|effort:${modelReasoningEffort(model) ?? ""}|stream:${config.stream ?? true}|proxy:${config.proxyUrl ?? ""}`;
   const allowSystemFileRead = config.allowSystemFileRead ?? envFlagEnabled(process.env.INKOS_AGENT_ALLOW_SYSTEM_READ, false);
   const suppressProductionTools = config.suppressProductionTools ?? false;
   const profiles = createBuiltInWorkProfileRegistry(projectRoot);

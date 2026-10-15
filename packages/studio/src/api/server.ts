@@ -73,6 +73,8 @@ import {
   normalizeRequestedIntent as normalizeCoreRequestedIntent,
   normalizeSkillIdList as normalizeCoreSkillIdList,
   isLLMApiFormat,
+  isLLMReasoningEffort,
+  type LLMReasoningEffort,
   ingestMaterial,
   createSkillRegistry,
   loadAvailableAgentSkills,
@@ -1589,6 +1591,7 @@ interface ServiceConfigEntry {
   baseUrl?: string;
   models?: string[];
   temperature?: number;
+  reasoningEffort?: LLMReasoningEffort;
   apiFormat?: LLMApiFormat;
   stream?: boolean;
 }
@@ -1737,6 +1740,7 @@ function normalizeServiceEntry(serviceId: string, value: Record<string, unknown>
       ...(typeof value.baseUrl === "string" && value.baseUrl.length > 0 ? { baseUrl: value.baseUrl } : {}),
       ...(Array.isArray(value.models) ? { models: normalizeServiceModelIds(value.models) } : {}),
       ...(typeof value.temperature === "number" ? { temperature: value.temperature } : {}),
+      ...(isLLMReasoningEffort(value.reasoningEffort) ? { reasoningEffort: value.reasoningEffort } : {}),
       ...(isLLMApiFormat(value.apiFormat) ? { apiFormat: value.apiFormat } : {}),
       ...(typeof value.stream === "boolean" ? { stream: value.stream } : {}),
     };
@@ -1749,6 +1753,7 @@ function normalizeServiceEntry(serviceId: string, value: Record<string, unknown>
       ...(typeof value.baseUrl === "string" && value.baseUrl.length > 0 ? { baseUrl: value.baseUrl } : {}),
       ...(Array.isArray(value.models) ? { models: normalizeServiceModelIds(value.models) } : {}),
       ...(typeof value.temperature === "number" ? { temperature: value.temperature } : {}),
+      ...(isLLMReasoningEffort(value.reasoningEffort) ? { reasoningEffort: value.reasoningEffort } : {}),
       ...(isLLMApiFormat(value.apiFormat) ? { apiFormat: value.apiFormat } : {}),
       ...(typeof value.stream === "boolean" ? { stream: value.stream } : {}),
     };
@@ -1758,6 +1763,7 @@ function normalizeServiceEntry(serviceId: string, value: Record<string, unknown>
     service: serviceId,
     ...(Array.isArray(value.models) ? { models: normalizeServiceModelIds(value.models) } : {}),
     ...(typeof value.temperature === "number" ? { temperature: value.temperature } : {}),
+    ...(isLLMReasoningEffort(value.reasoningEffort) ? { reasoningEffort: value.reasoningEffort } : {}),
     ...(isLLMApiFormat(value.apiFormat) ? { apiFormat: value.apiFormat } : {}),
     ...(typeof value.stream === "boolean" ? { stream: value.stream } : {}),
   };
@@ -1777,6 +1783,7 @@ function normalizeServiceConfig(raw: unknown): ServiceConfigEntry[] {
         ...(typeof entry.baseUrl === "string" && entry.baseUrl.length > 0 ? { baseUrl: entry.baseUrl } : {}),
         ...(Array.isArray(entry.models) ? { models: normalizeServiceModelIds(entry.models) } : {}),
         ...(typeof entry.temperature === "number" ? { temperature: entry.temperature } : {}),
+        ...(isLLMReasoningEffort(entry.reasoningEffort) ? { reasoningEffort: entry.reasoningEffort } : {}),
         ...(isLLMApiFormat(entry.apiFormat) ? { apiFormat: entry.apiFormat } : {}),
         ...(typeof entry.stream === "boolean" ? { stream: entry.stream } : {}),
       }));
@@ -1863,6 +1870,8 @@ function syncTopLevelLlmMirror(llm: Record<string, unknown>): void {
   const defaultModel = typeof llm.defaultModel === "string" ? llm.defaultModel.trim() : "";
   if (defaultModel) llm.model = defaultModel;
   if (selectedEntry.temperature !== undefined) llm.temperature = selectedEntry.temperature;
+  if (selectedEntry.reasoningEffort !== undefined) llm.reasoningEffort = selectedEntry.reasoningEffort;
+  else delete llm.reasoningEffort;
   if (selectedEntry.apiFormat !== undefined) llm.apiFormat = selectedEntry.apiFormat;
   if (selectedEntry.stream !== undefined) llm.stream = selectedEntry.stream;
 }
@@ -2297,6 +2306,7 @@ async function probeServiceCapabilities(args: {
   preferredStream?: boolean;
   preferredModel?: string;
   proxyUrl?: string;
+  reasoningEffort?: LLMReasoningEffort;
   language?: StudioLanguage;
 }): Promise<ServiceProbeResult> {
   const lang = args.language ?? "zh";
@@ -2420,6 +2430,7 @@ async function probeServiceCapabilities(args: {
         temperature: 0.7,
         maxTokens: 16,
         thinkingBudget: 0,
+        reasoningEffort: args.reasoningEffort,
         proxyUrl: args.proxyUrl,
         apiFormat: plan.apiFormat,
         stream: plan.stream,
@@ -3698,12 +3709,13 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
 
   app.post("/api/v1/services/:service/test", async (c) => {
     const service = c.req.param("service");
-    const { apiKey, baseUrl, apiFormat, stream, preferredModel } = await c.req.json<{
+    const { apiKey, baseUrl, apiFormat, stream, preferredModel, reasoningEffort } = await c.req.json<{
       apiKey: string;
       baseUrl?: string;
       apiFormat?: LLMApiFormat;
       stream?: boolean;
       preferredModel?: string;
+      reasoningEffort?: LLMReasoningEffort;
     }>();
 
     const language = await currentProjectLanguage();
@@ -3737,6 +3749,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
       preferredModel: preferredModel?.trim() || undefined,
       preferredApiFormat: apiFormat,
       preferredStream: stream,
+      ...(isLLMReasoningEffort(reasoningEffort) ? { reasoningEffort } : {}),
       proxyUrl: typeof llm.proxyUrl === "string" ? llm.proxyUrl : undefined,
       language,
     });
@@ -4837,6 +4850,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
             root,
             await resolveConfiguredServiceBaseUrl(root, reqService),
             configuredEntry?.apiFormat,
+            configuredEntry?.reasoningEffort,
           );
           resolvedModel = resolved.model;
           resolvedApiKey = resolved.apiKey;
@@ -4869,6 +4883,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
               root,
               firstService.baseUrl,
               firstService.apiFormat,
+              firstService.reasoningEffort,
             );
             resolvedModel = resolved.model;
             resolvedApiKey = resolved.apiKey;
@@ -4892,6 +4907,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
                   root,
                   await resolveConfiguredServiceBaseUrl(root, svcName),
                   configuredEntry?.apiFormat,
+                  configuredEntry?.reasoningEffort,
                 );
                 resolvedModel = resolved.model;
                 resolvedApiKey = resolved.apiKey;
@@ -4925,6 +4941,7 @@ export function createStudioServer(initialConfig: ProjectConfig, root: string, o
             apiKey: resolvedApiKey ?? "",
             ...(configuredEntry?.apiFormat ? { apiFormat: configuredEntry.apiFormat } : {}),
             ...(configuredEntry?.stream !== undefined ? { stream: configuredEntry.stream } : {}),
+            reasoningEffort: configuredEntry?.reasoningEffort,
             baseUrl: configuredEntry?.baseUrl ?? "",
           } as any)
         : client;

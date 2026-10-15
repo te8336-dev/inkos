@@ -6,7 +6,7 @@ import { getEndpoint } from "../llm/providers/index.js";
 import { guessServiceFromBaseUrl, resolveServicePreset, resolveServiceProviderFamily } from "../llm/service-presets.js";
 import { isApiKeyOptionalForEndpoint } from "./llm-endpoint-auth.js";
 import { mergedLLMEnv, studioIgnoredEnv, type LLMEnvLayers, type LLMEnvMap } from "./llm-env.js";
-import type { LLMApiFormat } from "../llm/api-format.js";
+import type { LLMApiFormat, LLMReasoningEffort } from "../llm/api-format.js";
 
 export type LLMConsumer = "studio" | "cli" | "daemon" | "deploy";
 export type LLMConfigMode = "studio-project" | "cli-project" | "environment";
@@ -59,6 +59,7 @@ interface ServiceConfigEntry {
   readonly baseUrl?: string;
   readonly models?: readonly string[];
   readonly temperature?: number;
+  readonly reasoningEffort?: LLMReasoningEffort;
   readonly apiFormat?: LLMApiFormat;
   readonly stream?: boolean;
 }
@@ -329,6 +330,8 @@ function applyServiceEntry(llm: Record<string, unknown>, entry: ServiceConfigEnt
   llm.baseUrl = entry.baseUrl ?? resolveServicePreset(entry.service)?.baseUrl ?? "";
 
   if (entry.temperature !== undefined) llm.temperature = entry.temperature;
+  // A service without an override must not inherit another service's effort.
+  llm.reasoningEffort = entry.reasoningEffort;
   if (entry.apiFormat !== undefined) llm.apiFormat = entry.apiFormat;
   else if (transportDefaults?.apiFormat !== undefined) llm.apiFormat = transportDefaults.apiFormat;
   else {

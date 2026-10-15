@@ -23,6 +23,7 @@ import {
   beginAgentModelCall,
 } from "./agent-trajectory.js";
 import type { LLMApiFormat } from "./api-format.js";
+import { applyReasoningEffort, withReasoningEffort } from "./reasoning-effort.js";
 
 
 // === Streaming Monitor Types ===
@@ -396,7 +397,7 @@ export function createLLMClient(config: LLMConfig): LLMClient {
     apiFormat,
     stream,
     proxyUrl: config.proxyUrl,
-    _piModel: piModel,
+    _piModel: withReasoningEffort(piModel, config.reasoningEffort),
     _apiKey: config.apiKey,
     defaults,
   };
@@ -1103,7 +1104,7 @@ async function chatCompletionViaCustomAnthropicCompatible(
       ...(client._piModel?.headers ?? {}),
       ...traceHeaders,
     }) ?? { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
+    body: JSON.stringify(applyReasoningEffort(payload, client._piModel!)),
     signal,
   }, client.proxyUrl);
 
@@ -1227,7 +1228,7 @@ async function chatCompletionViaCustomOpenAICompatible(
     const response = await fetchWithProxy(`${baseUrl.replace(/\/$/, "")}/responses`, {
       method: "POST",
       headers,
-      body: JSON.stringify(payload),
+      body: JSON.stringify(applyReasoningEffort(payload, client._piModel!)),
       signal,
     }, client.proxyUrl);
     if (!response.ok) {
@@ -1328,7 +1329,7 @@ async function chatCompletionViaCustomOpenAICompatible(
   const response = await fetchWithProxy(`${baseUrl.replace(/\/$/, "")}/chat/completions`, {
     method: "POST",
     headers,
-    body: JSON.stringify(payload),
+    body: JSON.stringify(applyReasoningEffort(payload, client._piModel!)),
     signal,
   }, client.proxyUrl);
   if (!response.ok) {
@@ -1631,6 +1632,7 @@ async function chatCompletionViaPiAi(
     apiKey: client._apiKey,
     headers: mergeUserAgent({ ...(piModel.headers ?? {}), ...traceHeaders }),
     signal,
+    onPayload: (payload: unknown) => applyReasoningEffort(payload, piModel),
   };
 
   if (!client.stream) {

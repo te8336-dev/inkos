@@ -9,6 +9,23 @@ import {
 } from "./service-detail-state";
 
 describe("mergeServiceDetailModels", () => {
+  it("saves the chosen reasoning effort with the service settings", async () => {
+    const fetchJsonImpl = vi.fn(async () => ({ ok: true }));
+    await saveServiceConfig({
+      effectiveServiceId: "custom:Gateway", serviceId: "custom:Gateway", isCustom: true,
+      resolvedCustomName: "Gateway", apiKey: "test-key", baseUrl: "https://gateway.example/v1",
+      apiFormat: "responses", stream: true, temperature: "0.7", reasoningEffort: "high",
+      detectedModel: "test-model", configuredModels: ["test-model"],
+      verifiedProbe: { apiKey: "test-key", baseUrl: "https://gateway.example/v1", apiFormat: "responses", stream: true,
+        reasoningEffort: "high",
+        models: [{ id: "test-model" }], selectedModel: "test-model" },
+      fetchJsonImpl: fetchJsonImpl as never,
+    });
+    const calls = fetchJsonImpl.mock.calls as unknown as Array<[string, { body: string }]>;
+    const body = JSON.parse(calls.find(([path]) => path === "/services/config")![1].body);
+    expect(body.services[0].reasoningEffort).toBe("high");
+  });
+
   it("keeps discovered and user-added models in one stable catalog", () => {
     expect(mergeServiceDetailModels(
       [{ id: "MiniMax-M2.7" }],

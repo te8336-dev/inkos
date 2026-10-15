@@ -23,6 +23,7 @@ import {
   beginAgentModelCall,
 } from "../llm/agent-trajectory.js";
 import { fetchWithProxy } from "../utils/proxy-fetch.js";
+import { applyReasoningEffort } from "../llm/reasoning-effort.js";
 
 /**
  * The single Pi transport boundary used by both conversational and worker
@@ -75,7 +76,8 @@ export function guardedPiStream<TApi extends Api>(
             configured = { ...configured as Record<string, unknown>, tool_choice: { type: choice === "none" ? "none" : "auto" } };
           }
         }
-        const prepared = await options?.onPayload?.(configured, activeModel) ?? configured;
+        const transformed = await options?.onPayload?.(configured, activeModel) ?? configured;
+        const prepared = applyReasoningEffort(transformed, activeModel);
         recordExecutionEvidence("model-request-prepared", { modelCallId: modelCall?.modelCallId, model: activeModel.id,
           api: activeModel.api,
           parameters: prepared && typeof prepared === "object" ? Object.fromEntries(Object.entries(prepared).filter(([key]) => ["stream", "thinking", "max_tokens", "max_completion_tokens", "max_output_tokens", "tool_choice"].includes(key))) : {} });
@@ -155,7 +157,7 @@ export function guardedPiNonStreaming<TApi extends Api>(
               ...(options?.headers ?? {}),
               ...traceHeaders,
             },
-            body: JSON.stringify(transformed ?? configured),
+            body: JSON.stringify(applyReasoningEffort(transformed ?? configured, model)),
             signal: deadline.signal,
           }, proxyUrl);
           const raw = await response.text();
